@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run dev",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "regions": ["sfo1"],
+  "github": {
+    "silent": true
+  }
+} 

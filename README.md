@@ -122,3 +122,38 @@ MIT
 - Reddit API for providing access to real user reviews
 - Next.js team for the amazing framework
 - Natural language processing libraries for sentiment analysis capabilities
+
+## Deployment
+
+This project can be deployed to Vercel with the following steps:
+
+1. Install Vercel CLI:
+   ```bash
+   npm install -g vercel
+   ```
+
+2. Login to Vercel:
+   ```bash
+   vercel login
+   ```
+
+3. Deploy the project:
+   ```bash
+   vercel
+   ```
+
+4. After deployment, go to your Vercel Dashboard:
+   - Set environment variables (Settings → Environment Variables):
+     - `REDDIT_CLIENT_ID`: Your Reddit app client ID
+     - `REDDIT_CLIENT_SECRET`: Your Reddit app client secret
+     - `REDDIT_REDIRECT_URI`: Set to `https://your-vercel-domain.vercel.app/api/auth/reddit/callback`
+
+5. Update your Reddit app settings:
+   - Go to https://www.reddit.com/prefs/apps
+   - Edit your app
+   - Update the redirect URI to match your Vercel domain
+
+6. Redeploy after updating environment variables:
+   ```bash
+   vercel --prod
+   ```
