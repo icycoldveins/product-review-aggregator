@@ -31,11 +31,13 @@ export function extractProsAndCons(texts: string[]): { pros: string[], cons: str
   const pros: string[] = [];
   const cons: string[] = [];
   
-  // Extract sentences from reviews
-  const sentenceExtractor = new natural.SentenceTokenizer();
+  // Use a simple regex-based sentence tokenizer instead
+  const tokenizeSentences = (text: string): string[] => {
+    return text.split(/[.!?]+/).filter(s => s.trim().length > 0).map(s => s.trim());
+  };
   
   texts.forEach(text => {
-    const sentences = sentenceExtractor.tokenize(text);
+    const sentences = tokenizeSentences(text);
     
     sentences.forEach(sentence => {
       sentence = sentence.toLowerCase();
