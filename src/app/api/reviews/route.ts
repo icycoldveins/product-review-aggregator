@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { fetchRedditReviews } from '@/lib/reddit';
-import { extractProsAndCons, calculateOverallSentiment } from '@/lib/sentiment';
+import { 
+  extractProsAndCons, 
+  calculateOverallSentiment, 
+  calculateConfidenceScore,
+  extractKeyTopics,
+  calculateSentimentConsistency,
+  analyzeFeatureMentions
+} from '@/lib/sentiment';
 
 export async function GET(request: Request) {
   try {
@@ -58,14 +65,24 @@ export async function GET(request: Request) {
       // Extract pros and cons from the review texts
       const { pros, cons } = extractProsAndCons(reviewTexts);
       
+      // Calculate new metrics
+      const confidenceScore = calculateConfidenceScore(reviews);
+      const keyTopics = extractKeyTopics(reviews);
+      const sentimentConsistency = calculateSentimentConsistency(reviews);
+      const featureMentions = analyzeFeatureMentions(reviews);
+      
       // Format the response
       const productData = {
         name: query,
         averageRating,
         reviewCount: reviews.length,
         sentimentScore,
+        confidenceScore,
+        sentimentConsistency,
         pros,
         cons,
+        keyTopics,
+        featureMentions,
         reviews,
         source: 'real'
       };
