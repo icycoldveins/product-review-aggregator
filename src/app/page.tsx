@@ -1,103 +1,268 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from 'react';
+import SearchBar from '@/components/SearchBar';
+import ReviewSummary from '@/components/ReviewSummary';
+import ReviewList from '@/components/ReviewList';
+import Loading from '@/components/Loading';
+import { ProductData } from '@/lib/types';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [query, setQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [productData, setProductData] = useState<ProductData | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authExpires, setAuthExpires] = useState<string | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Function to check authentication status
+  const checkAuthentication = async () => {
+    try {
+      const response = await fetch('/api/auth/reddit/status');
+      const data = await response.json();
+      
+      setIsAuthenticated(data.authenticated);
+      if (data.expiresAt) {
+        setAuthExpires(data.expiresAt);
+      }
+      
+      if (data.error && !authError) {
+        setAuthError(data.error);
+      }
+      
+      return data.authenticated;
+    } catch (err) {
+      console.error('Error checking auth status:', err);
+      setIsAuthenticated(false);
+      return false;
+    }
+  };
+
+  // Check if user is authenticated with Reddit and handle auth errors in URL
+  useEffect(() => {
+    // Check for auth errors in URL
+    const url = new URL(window.location.href);
+    const errorParam = url.searchParams.get('error');
+    if (errorParam) {
+      if (errorParam.startsWith('reddit_')) {
+        setAuthError(`Reddit auth error: ${errorParam.replace('reddit_', '')}`);
+      } else if (errorParam === 'invalid_state') {
+        setAuthError('Authentication failed: Invalid state parameter');
+      } else if (errorParam === 'no_code') {
+        setAuthError('Authentication failed: No authorization code received');
+      } else if (errorParam === 'auth_failed') {
+        setAuthError('Authentication failed: Please try again');
+      }
+      
+      // Remove error from URL without reloading the page
+      url.searchParams.delete('error');
+      window.history.replaceState({}, document.title, url.toString());
+    }
+    
+    // Check for successful auth
+    if (url.searchParams.get('auth') === 'success') {
+      console.log('Successfully authenticated with Reddit');
+      url.searchParams.delete('auth');
+      window.history.replaceState({}, document.title, url.toString());
+      checkAuthentication(); // Immediately check auth status after successful auth
+    } else {
+      // Check auth status on load
+      checkAuthentication();
+    }
+    
+    // Check auth status when window gains focus (in case of auth redirect)
+    window.addEventListener('focus', checkAuthentication);
+    return () => window.removeEventListener('focus', checkAuthentication);
+  }, [authError]);
+
+  // Format auth expiration time for display
+  const getExpiresMessage = () => {
+    if (!authExpires) return null;
+    
+    const expiresDate = new Date(authExpires);
+    const now = new Date();
+    const diffMs = expiresDate.getTime() - now.getTime();
+    const diffMins = Math.round(diffMs / 60000); // minutes
+    
+    if (diffMins <= 0) return 'Expired';
+    if (diffMins < 5) return 'Expires in less than 5 minutes';
+    if (diffMins < 60) return `Expires in ${diffMins} minutes`;
+    return `Expires in ${Math.round(diffMins / 60)} hour`;
+  };
+
+  const handleRedditAuth = async () => {
+    // Get the Reddit auth URL from our API
+    try {
+      setAuthError(null);
+      const response = await fetch('/api/auth/reddit');
+      if (!response.ok) {
+        throw new Error('Failed to get Reddit authentication URL');
+      }
+      const data = await response.json();
+      
+      // Redirect to Reddit auth URL
+      window.location.href = data.url;
+    } catch (err) {
+      console.error('Error starting Reddit authentication:', err);
+      setAuthError((err as Error).message);
+    }
+  };
+
+  const handleSearch = async (query: string) => {
+    setQuery(query);
+    setIsLoading(true);
+    setError(null);
+    setAuthError(null);
+    setProductData(null);
+    
+    if (!isAuthenticated) {
+      setError('Please connect to Reddit before searching');
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/reviews?query=${encodeURIComponent(query)}`);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Handle authentication error - set state but don't throw
+          setIsAuthenticated(false);
+          setError('Your Reddit authentication has expired. Please reconnect and try again.');
+          
+          // Automatically try to refresh authentication
+          await checkAuthentication();
+          setIsLoading(false);
+          return;
+        } else if (response.status === 404) {
+          setError('No reviews found on Reddit for this product. Try a different search term.');
+          setIsLoading(false);
+          return;
+        }
+        
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to fetch product reviews');
+        setIsLoading(false);
+        return;
+      }
+      
+      const data = await response.json();
+      setProductData(data);
+    } catch (err) {
+      console.error('Error fetching product reviews:', err);
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    // Clear auth cookies server-side
+    try {
+      const response = await fetch('/api/auth/reddit/logout', {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        setIsAuthenticated(false);
+        setAuthExpires(null);
+      } else {
+        console.error('Failed to logout');
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
+
+  return (
+    <main className="flex min-h-screen flex-col items-center p-4 md:p-8 lg:p-12">
+      <div className="z-10 w-full max-w-5xl items-center justify-between text-sm lg:flex">
+        <div className="w-full">
+          <h1 className="text-3xl font-bold mb-6 text-center">
+            Reddit Review Aggregator
+          </h1>
+          <p className="text-lg text-gray-600 mb-8 text-center">
+            Search for a product to see real Reddit reviews and sentiment analysis
+          </p>
+          
+          <SearchBar onSearch={handleSearch} />
+          
+          <div className="mt-4 text-center">
+            {isAuthenticated ? (
+              <div className="flex flex-col items-center">
+                <div className="text-sm text-green-600 mb-1">
+                  ✓ Connected to Reddit
+                </div>
+                {authExpires && (
+                  <div className="text-xs text-gray-500 mb-2">
+                    {getExpiresMessage()}
+                  </div>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="text-xs underline text-gray-500 hover:text-gray-700"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={handleRedditAuth}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                >
+                  Connect Reddit for Reviews
+                </button>
+                {authError && (
+                  <div className="mt-2 text-xs text-red-600">{authError}</div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {isLoading && <Loading />}
+          
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-6">
+              <p>{error}</p>
+              {error.includes('expired') && (
+                <button
+                  onClick={handleRedditAuth}
+                  className="mt-2 inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-700 hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Reconnect to Reddit
+                </button>
+              )}
+            </div>
+          )}
+          
+          {productData && !isLoading && (
+            <div className="mt-8">
+              <div className="text-sm px-3 py-1 rounded-full inline-block mb-4 bg-blue-100 text-blue-800 border border-blue-300">
+                Reddit reviews
+              </div>
+              
+              <ReviewSummary 
+                productName={productData.name}
+                averageRating={productData.averageRating} 
+                reviewCount={productData.reviewCount}
+                sentimentScore={productData.sentimentScore}
+                pros={productData.pros}
+                cons={productData.cons}
+              />
+              
+              <div className="mt-8">
+                <ReviewList reviews={productData.reviews} />
+              </div>
+            </div>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </div>
+      
+      <footer className="mt-auto w-full text-center border-t border-gray-300 pt-8 text-sm text-gray-600">
+        Reddit Review Aggregator
       </footer>
-    </div>
+    </main>
   );
 }
