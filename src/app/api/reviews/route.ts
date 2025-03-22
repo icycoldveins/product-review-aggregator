@@ -71,7 +71,7 @@ export async function GET(request: Request) {
       };
 
       return NextResponse.json(productData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching Reddit reviews:', error);
       
       // Handle errors from fetchRedditReviews
@@ -95,7 +95,7 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error processing reviews:', error);
     return NextResponse.json(
       { error: 'Failed to process reviews: ' + error.message },

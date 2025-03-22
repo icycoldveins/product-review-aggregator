@@ -106,7 +106,7 @@ export async function getAccessToken(code: string): Promise<string> {
       }
       
       return data.access_token;
-    } catch (fetchError) {
+    } catch (fetchError: any) {
       if (fetchError.name === 'AbortError') {
         throw new Error('Reddit API request timed out');
       }
@@ -114,7 +114,7 @@ export async function getAccessToken(code: string): Promise<string> {
     } finally {
       clearTimeout(timeoutId);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error exchanging code for token:', error);
     throw new Error('Reddit authentication required');
   }
@@ -212,7 +212,7 @@ export async function fetchRedditReviews(productName: string, accessToken: strin
           if (reviews.length >= 20) break;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log('Error with all-Reddit search:', error.message);
       // Continue to the subreddit-specific searches
     }
@@ -292,7 +292,7 @@ export async function fetchRedditReviews(productName: string, accessToken: strin
               // If we have enough reviews, stop
               if (reviews.length >= 20) break;
             }
-          } catch (searchError) {
+          } catch (searchError: any) {
             console.error(`Error searching r/${subreddit} for "${searchTerm}":`, searchError);
             // If it's an auth error, propagate it up
             if (searchError.message?.includes('authentication')) {
@@ -313,7 +313,7 @@ export async function fetchRedditReviews(productName: string, accessToken: strin
     
     console.log(`Total reviews found for "${productName}": ${reviews.length}`);
     return reviews;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching Reddit reviews:', error);
     // Re-throw auth errors
     if (error.message?.includes('authentication')) {

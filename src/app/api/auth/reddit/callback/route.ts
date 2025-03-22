@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     });
     
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error handling Reddit callback:', error);
     return createErrorResponse('/?error=auth_failed');
   }
